@@ -1,31 +1,29 @@
-from argparse import ArgumentParser
 import os
-from string import ascii_letters, digits, punctuation
 
 from fontTools.ttLib import TTFont
 from lxml.etree import Element, SubElement, tostring
 from wand.drawing import Color, Drawing
 from wand.image import Image
 
+from .config import WWTGlyphGeneratorConfig
 
-def check_char_in_font(char_to_check, font_path):
-    # Load the font file
-    font = TTFont(font_path)
+
+def check_char_in_font(char: str, font: TTFont) -> bool:
 
     # Check the Unicode cmap table
     for cmap in font['cmap'].tables:
         if cmap.isUnicode():
-            if ord(char_to_check) in cmap.cmap:
+            if ord(char) in cmap.cmap:
                 return True
     return False
 
 
-def get_size_width(extent_width, horizontal_spacing, n_cols):
+def get_size_width(extent_width: float, horizontal_spacing: float, n_cols: int) -> float:
     column_spacing_term = 2 * horizontal_spacing / (n_cols + 1)
     return extent_width + column_spacing_term
 
 
-def get_size_height(extent_height, image_height):
+def get_size_height(extent_height: float, image_height: float) -> float:
     return extent_height + round((image_height * 0.01), 1)
 
 
@@ -34,27 +32,21 @@ def batches(characters, batch_size):
         yield characters[i:i + batch_size]
 
 
-def glyph_filename(version, index, extension):
+def glyph_filename(version: int, index: int, extension: str) -> str:
     return f"glyphs{version}-{index}.{extension}"
 
 
-def write_xml(root, filepath):
+def write_xml(root: Element, filepath: str):
     with open(filepath, 'w') as f:
         f.write(tostring(root, pretty_print=True).decode())
 
 
-GLYPHS_V1 = " 0hr123456789-+JanuyFebMcApilgstSmOoNvDBCEdqVjxGHILPRTU" 
-
-diacritics = "áćéíĺḿńóṕŕśúýźàèìòùỳẁâĉêĝĥîĵôŝûŵŷăčďěğǐǰǩľňǒřšťǔžőűäëïöüÿãẽĩñõũỹçȩşţāēīōūȳæœþø"
-GLYPHS_V2 = digits + ascii_letters + punctuation + diacritics + diacritics.upper() + " -+"
-
-
-def create_glyphs(options):
+def create_glyphs(options: WWTGlyphGeneratorConfig):
     # Create the output directory, if it doesn't already exist
     output_folder = options.output_dir
     os.makedirs(output_folder, exist_ok=True)
 
-    version = options.glyph_version
+    version = options.version
     characters = options.characters
 
     image_width = 2048
@@ -69,7 +61,11 @@ def create_glyphs(options):
     horizontal_spacing = int(image_width / n_cols)
     vertical_padding = padding
     vertical_spacing = row_height - font_height
-    
+
+    font = TTFont(options.ttf)
+    font_name_table = font["name"]
+    font_name = font_name_table.getBestFullName()
+
     # Batch the glyphs into n_rows x n_cols batches
     batch_size = n_rows * n_cols
     batches_data = []
@@ -86,15 +82,15 @@ def create_glyphs(options):
         y = y0
         with Drawing() as draw, Image(width=image_width, height=image_height, background=Color('transparent'), format="PNG32") as image:
             draw.font_size = font_height 
-            draw.font_family = "Microsoft Sans Serif"
+            draw.font_family = font_name
             draw.fill_color = Color("rgba(255, 255, 255, 1)")
             draw.font_style = "normal"
             draw.font_weight = 1
             for char in batch:
                 
-                in_font = check_char_in_font(char, "micross.ttf")
+                in_font = check_char_in_font(char, font)
                 if not in_font:
-                    raise ValueError(f"Character {char} is not in Microsoft Sans Serif")
+                    raise ValueError(f"Character {char} is not in f{font_name}")
     
                 metrics = draw.get_font_metrics(image, char)
                 if x >= image_width:
@@ -152,13 +148,3 @@ def create_glyphs(options):
     write_xml(root, summary_output)
 
 
-if __name__ == "__main__":
-
-    parser = ArgumentParser(description="A tool for generating glyph images and associated XML for WorldWide Telescope")
-
-    parser.add_argument("--output-dir", type=str, default="docs", help="The location to put the generated image and XML files")
-    parser.add_argument("--glyph-version", type=int, default=2, help="The version number to tag the generated files with")
-    parser.add_argument("--characters", type=str, default=GLYPHS_V2, help="The list of characters to include on the generated images")
-    args = parser.parse_args()
-
-    create_glyphs(args)
