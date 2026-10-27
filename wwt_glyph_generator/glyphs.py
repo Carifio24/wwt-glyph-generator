@@ -6,6 +6,8 @@ from lxml.etree import Element, SubElement, tostring
 from wand.drawing import Color, Drawing
 from wand.image import Image
 
+from wwt_glyph_generator.constants import DEFAULT_FONT
+
 from .config import WWTGlyphGeneratorConfig
 
 
@@ -76,7 +78,7 @@ def create_glyphs(options: WWTGlyphGeneratorConfig):
     font = TTFont(options.ttf)
     font_name_table = font["name"]
     font_full_name = font_name_table.getBestFullName()
-    font_display_name = font_name_table.getDebugName(4)
+    font_display_name = None if font_full_name == DEFAULT_FONT else font_name_table.getDebugName(4)
 
     # Batch the glyphs into n_rows x n_cols batches
     batch_size = n_rows * n_cols
