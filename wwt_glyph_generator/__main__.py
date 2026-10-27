@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import argparse
 from os.path import join
 
 from .config import WWTGlyphGeneratorConfig
@@ -16,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--version", type=int, default=2, help="The version number to tag the generated files with")
     parser.add_argument("--characters", type=str, default=GLYPHS_V2, help="The list of characters to include on the generated images")
     parser.add_argument("--ttf", type=str, default=default_font_path, help="The path of the TTF file to use")
-    parser.add_argument("--fail-on-missing", type=bool, default=False)
+    parser.add_argument("--fail-on-missing", action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
 
     create_glyphs(WWTGlyphGeneratorConfig(**vars(args)))
