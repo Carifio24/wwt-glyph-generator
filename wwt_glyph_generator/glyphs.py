@@ -33,8 +33,18 @@ def batches(characters, batch_size):
         yield characters[i:i + batch_size]
 
 
-def glyph_filename(version: int, index: int, extension: str) -> str:
-    return f"glyphs{version}-{index}.{extension}"
+def _font_string(font_name: str | None, prefix="-"):
+    return f"{prefix}{font_name.replace(' ', '')}" if font_name else ""
+
+
+def glyph_filename(version: int, index: int, font_name: str | None, extension: str) -> str:
+    font_str = _font_string(font_name)
+    return f"glyphs{version}-{index}{font_str}.{extension}"
+
+
+def summary_filename(version: int, font_name: str | None) -> str:
+    font_str = _font_string(font_name, prefix="_")
+    return f"glyphs{version}{font_str}_summary.xml"
 
 
 def write_xml(root: Element, filepath: str):
@@ -65,15 +75,16 @@ def create_glyphs(options: WWTGlyphGeneratorConfig):
 
     font = TTFont(options.ttf)
     font_name_table = font["name"]
-    font_name = font_name_table.getBestFullName()
+    font_full_name = font_name_table.getBestFullName()
+    font_display_name = font_name_table.getDebugName(4)
 
     # Batch the glyphs into n_rows x n_cols batches
     batch_size = n_rows * n_cols
     batches_data = []
     for index, batch in enumerate(batches(characters, batch_size)):
     
-        image_file = os.path.join(output_folder, glyph_filename(version, index, "png"))
-        xml_file = os.path.join(output_folder, glyph_filename(version, index, "xml"))
+        image_file = os.path.join(output_folder, glyph_filename(version, index, font_display_name, "png"))
+        xml_file = os.path.join(output_folder, glyph_filename(version, index, font_display_name, "xml"))
     
         # Draw the glyph image
         character_data = {}
@@ -83,7 +94,7 @@ def create_glyphs(options: WWTGlyphGeneratorConfig):
         y = y0
         with Drawing() as draw, Image(width=image_width, height=image_height, background=Color('transparent'), format="PNG32") as image:
             draw.font_size = font_height 
-            draw.font_family = font_name
+            draw.font_family = font_full_name
             draw.fill_color = Color("rgba(255, 255, 255, 1)")
             draw.font_style = "normal"
             draw.font_weight = 1
@@ -91,7 +102,7 @@ def create_glyphs(options: WWTGlyphGeneratorConfig):
                 
                 in_font = check_char_in_font(char, font)
                 if not in_font:
-                    error_message = f"Character {char} is not in f{font_name}"
+                    error_message = f"Character {char} is not in f{font_display_name}"
                     if options.fail_on_missing:
                         raise ValueError(error_message)
                     else:
@@ -141,15 +152,15 @@ def create_glyphs(options: WWTGlyphGeneratorConfig):
     root = Element("GlyphFiles")
     for index, data in enumerate(batches_data):
         element = SubElement(root, "GlyphFile")
-        element.set("ImagePath", glyph_filename(version, index, "png"))
-        element.set("XMLPath", glyph_filename(version, index, "xml"))
+        element.set("ImagePath", glyph_filename(version, index, font_display_name, "png"))
+        element.set("XMLPath", glyph_filename(version, index, font_display_name, "xml"))
         element.set("Index", str(index))
     
         for character in data.keys():
             glyph = SubElement(element, "Glyph")
             glyph.set("Character", character)
     
-    summary_output = os.path.join(output_folder, f"glyphs{version}_summary.xml")
+    summary_output = os.path.join(output_folder, summary_filename(options.version, font_display_name))
     write_xml(root, summary_output)
 
 
