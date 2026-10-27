@@ -1,4 +1,5 @@
 import os
+import warnings
 
 from fontTools.ttLib import TTFont
 from lxml.etree import Element, SubElement, tostring
@@ -90,7 +91,11 @@ def create_glyphs(options: WWTGlyphGeneratorConfig):
                 
                 in_font = check_char_in_font(char, font)
                 if not in_font:
-                    raise ValueError(f"Character {char} is not in f{font_name}")
+                    error_message = f"Character {char} is not in f{font_name}"
+                    if options.fail_on_missing:
+                        raise ValueError(error_message)
+                    else:
+                        warnings.warn(error_message)
     
                 metrics = draw.get_font_metrics(image, char)
                 if x >= image_width:

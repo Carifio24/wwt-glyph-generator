@@ -6,3 +6,4 @@ class WWTGlyphGeneratorConfig:
     characters: str
     version: int
     output_dir: str
+    fail_on_missing: bool
